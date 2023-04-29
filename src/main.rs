@@ -25,12 +25,15 @@ fn main() {
 
 fn load_api_key() -> String {
     let key_file = match fs::read_to_string("key.yaml") {
-        Err(e) => panic!("Problem opening html file: {:?}", e),
+        Err(e) => panic!("Problem opening key file: {:?}", e),
         Ok(f) => f,
     };
 
     let docs = YamlLoader::load_from_str(&*key_file).unwrap();
-    let doc = &docs[0]; // select the first document
+    if docs.is_empty() {
+        panic!("Key file is empty");
+    }
+    let doc = &docs[0];
 
     match doc["key"].as_str() {
         None => panic!("Can't read key in key.yaml"),
