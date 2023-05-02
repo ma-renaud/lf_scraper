@@ -3,6 +3,10 @@ use yaml_rust::YamlLoader;
 #[allow(unused_imports)]
 use std::fs;
 
+struct Specie {
+    name: String,
+}
+
 fn main() {
     let contents = match fs::read_to_string("langevin.html") {
         Err(e) => panic!("Problem opening html file: {:?}", e),
@@ -10,6 +14,8 @@ fn main() {
     };
 
     //let contents = get_page();
+
+    let mut species: Vec<Specie> = Vec::new();
 
     let document = Html::parse_document(&*contents);
     let list_selector = Selector::parse("ol.product-items").unwrap();
@@ -19,7 +25,13 @@ fn main() {
 
     for element in list.select(&item_selector) {
         let name = element.select(&name_selector).next().unwrap();
-        println!("{}", name.inner_html());
+        species.push(Specie { name: name.inner_html() });
+    }
+
+    println!("{} wood species found.", species.len());
+
+    for specie in species {
+        println!("{}", specie.name);
     }
 }
 
@@ -43,7 +55,7 @@ fn load_api_key() -> String {
 
 #[allow(unused)]
 fn get_page() -> String {
-    let api_key:&str = &*load_api_key();
+    let api_key: &str = &*load_api_key();
     let client = reqwest::blocking::Client::builder()
         .cookie_store(true)
         .build()
