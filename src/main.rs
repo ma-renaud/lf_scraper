@@ -1,10 +1,13 @@
 use scraper::{Html, Selector};
-use yaml_rust::YamlLoader;
 #[allow(unused_imports)]
 use std::fs;
+use yaml_rust::YamlLoader;
 
+#[derive(Debug)]
 struct Specie {
     name: String,
+    price: u16,
+    id: u32,
 }
 
 fn main() {
@@ -21,17 +24,53 @@ fn main() {
     let list_selector = Selector::parse("ol.product-items").unwrap();
     let item_selector = Selector::parse("div.product-item-details").unwrap();
     let name_selector = Selector::parse("a.product-item-link").unwrap();
+    let price_selector = Selector::parse("span.price").unwrap();
+    let id_selector = Selector::parse("div.price-final_price").unwrap();
     let list = document.select(&list_selector).next().unwrap();
 
     for element in list.select(&item_selector) {
-        let name = element.select(&name_selector).next().unwrap();
-        species.push(Specie { name: name.inner_html() });
+        let name = element
+            .select(&name_selector)
+            .next()
+            .unwrap()
+            .inner_html()
+            .replace(" - bois brut", "")
+            .replace(" - Bois brut", "");
+
+        let price_html = element.select(&price_selector).next().unwrap();
+        let formatted_price = price_html
+            .inner_html()
+            .replace("&nbsp;$", "")
+            .replace(",", "");
+        let price = match formatted_price.parse::<u16>() {
+            Err(e) => panic!("Problem converting price string: {:?}", e),
+            Ok(p) => p,
+        };
+
+        let id_attr = element
+            .select(&id_selector)
+            .next()
+            .unwrap()
+            .value()
+            .attr("data-product-id");
+
+        let id_str = match id_attr {
+            None => panic!("Can't read ID attribute"),
+            Some(id) => id,
+        };
+
+        let id = match id_str.parse::<u32>() {
+            Err(e) => panic!("Problem converting ID string: {:?}", e),
+            Ok(id) => id,
+        };
+
+        species.push(Specie { name, price, id });
     }
 
     println!("{} wood species found.", species.len());
 
     for specie in species {
-        println!("{}", specie.name);
+        println!("{:?}", specie);
     }
 }
 
