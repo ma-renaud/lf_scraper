@@ -1,16 +1,47 @@
-use scraper::{Html, Selector};
 #[allow(unused_imports)]
+use anyhow::{anyhow, Result};
+use serde::{Serialize, Deserialize};
+use scraper::{Element, ElementRef, Html, Selector};
 use std::fs;
 use yaml_rust::YamlLoader;
+use surrealdb::dbs::{Response, Session};
+use surrealdb::kvs::Datastore;
+use surrealdb::sql::{thing, Datetime, Object, Thing, Value};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
+#[allow(unused)]
 struct Specie {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<u32>,
     name: String,
     price: u16,
-    id: u32,
+    lf_id: u32,
 }
 
-fn main() {
+type DB = (Datastore, Session);
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let db: &DB = &(Datastore::new("memory").await?, Session::for_db("my_ns", "my_db"));
+    let (ds, ses) = db;
+
+    
+
+
+    // let mut species: Vec<Specie> = Vec::new();
+    //
+    // scrape_prices(&mut species);
+    //
+    // println!("{} wood species found.", species.len());
+    //
+    // for specie in species {
+    //     println!("{:?}", specie);
+    // }
+
+    Ok(())
+}
+
+fn scrape_prices(species: &mut Vec<Specie>) {
     let contents = match fs::read_to_string("langevin.html") {
         Err(e) => panic!("Problem opening html file: {:?}", e),
         Ok(f) => f,
@@ -18,59 +49,66 @@ fn main() {
 
     //let contents = get_page();
 
-    let mut species: Vec<Specie> = Vec::new();
-
     let document = Html::parse_document(&*contents);
     let list_selector = Selector::parse("ol.product-items").unwrap();
     let item_selector = Selector::parse("div.product-item-details").unwrap();
-    let name_selector = Selector::parse("a.product-item-link").unwrap();
-    let price_selector = Selector::parse("span.price").unwrap();
-    let id_selector = Selector::parse("div.price-final_price").unwrap();
+
     let list = document.select(&list_selector).next().unwrap();
 
     for element in list.select(&item_selector) {
-        let name = element
-            .select(&name_selector)
-            .next()
-            .unwrap()
-            .inner_html()
-            .replace(" - bois brut", "")
-            .replace(" - Bois brut", "");
+        let name = scrape_name(&element);
+        let price = scrape_price(&element);
+        let lf_id = scrape_id(&element);
 
-        let price_html = element.select(&price_selector).next().unwrap();
-        let formatted_price = price_html
-            .inner_html()
-            .replace("&nbsp;$", "")
-            .replace(",", "");
-        let price = match formatted_price.parse::<u16>() {
-            Err(e) => panic!("Problem converting price string: {:?}", e),
-            Ok(p) => p,
-        };
-
-        let id_attr = element
-            .select(&id_selector)
-            .next()
-            .unwrap()
-            .value()
-            .attr("data-product-id");
-
-        let id_str = match id_attr {
-            None => panic!("Can't read ID attribute"),
-            Some(id) => id,
-        };
-
-        let id = match id_str.parse::<u32>() {
-            Err(e) => panic!("Problem converting ID string: {:?}", e),
-            Ok(id) => id,
-        };
-
-        species.push(Specie { name, price, id });
+        species.push(Specie { id: None, name, price, lf_id });
     }
+}
 
-    println!("{} wood species found.", species.len());
+fn scrape_name(element: &ElementRef) -> String {
+    let name_selector = Selector::parse("a.product-item-link").unwrap();
 
-    for specie in species {
-        println!("{:?}", specie);
+    element
+        .select(&name_selector)
+        .next()
+        .unwrap()
+        .inner_html()
+        .replace(" - bois brut", "")
+        .replace(" - Bois brut", "")
+}
+
+fn scrape_price(element: &ElementRef) -> u16 {
+    let price_selector = Selector::parse("span.price").unwrap();
+
+    let price_html = element.select(&price_selector).next().unwrap();
+    let formatted_price = price_html
+        .inner_html()
+        .replace("&nbsp;$", "")
+        .replace(",", "");
+
+    match formatted_price.parse::<u16>() {
+        Err(e) => panic!("Problem converting price string: {:?}", e),
+        Ok(p) => p,
+    }
+}
+
+fn scrape_id(element: &ElementRef) -> u32 {
+    let id_selector = Selector::parse("div.price-final_price").unwrap();
+
+    let id_attr = element
+        .select(&id_selector)
+        .next()
+        .unwrap()
+        .value()
+        .attr("data-product-id");
+
+    let id_str = match id_attr {
+        None => panic!("Can't read ID attribute"),
+        Some(id) => id,
+    };
+
+    match id_str.parse::<u32>() {
+        Err(e) => panic!("Problem converting ID string: {:?}", e),
+        Ok(id) => id,
     }
 }
 
