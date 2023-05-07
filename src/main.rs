@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
 use serde::{Serialize, Deserialize};
@@ -25,7 +26,29 @@ async fn main() -> Result<()> {
     let db: &DB = &(Datastore::new("memory").await?, Session::for_db("my_ns", "my_db"));
     let (ds, ses) = db;
 
+    let title = "Mon titre";
+    let priority = 1;
+
+    let test:(String, Value) = ("title".into(), title.into());
+
+    let data: BTreeMap<String, Value> = [
+        ("title".into(), title.into()),
+        ("priority".into(), priority.into()),
+    ]
+        .into();
+    let vars: BTreeMap<String, Value> = [("data".into(), data.into())].into();
+
     
+    let sql = "CREATE specie SET name='Merisier', price=433, lf_id=59729";
+    let res = ds.execute(sql, ses, None, false).await?;
+    let sql = "CREATE specie SET name='Noyer noir', price=1100, lf_id=59731";
+    let res = ds.execute(sql, ses, None, false).await?;
+
+    let sql = "SELECT * FROM specie";
+    let res = ds.execute(sql, ses, None, false).await?;
+    println!("{res:?}");
+
+
 
 
     // let mut species: Vec<Specie> = Vec::new();
