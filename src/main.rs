@@ -1,23 +1,15 @@
-#[allow(unused_imports)]
-use anyhow::{anyhow, Result};
-#[allow(unused_imports)]
-use surrealdb::dbs::{Response, Session};
-#[allow(unused_imports)]
-use surrealdb::kvs::Datastore;
-#[allow(unused_imports)]
-use surrealdb::sql::{thing, Datetime, Object, Thing, Value};
+use anyhow::{Result};
 
-mod specie;
+use surrealdb::engine::remote::ws::Ws;
+use surrealdb::Surreal;
+
+mod models;
 mod scaper;
 mod db;
-mod utils;
 
-use std::sync::Arc;
-#[allow(unused_imports)]
-use specie::Specie;
-#[allow(unused_imports)]
+use models::*;
 use scaper::{scrape_prices};
-use db::DB;
+use crate::db::{DbRemote, get_id_from_thing};
 
 
 /*TODO:
@@ -30,39 +22,32 @@ use db::DB;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let ds = Arc::new(Datastore::new("memory").await.unwrap());
-    let ses = Session::for_db("my_ns", "my_db");
-    let db = DB { ds, ses };
+    let client = Surreal::new::<Ws>("127.0.0.1:8000").await?;
+    let db = DbRemote { client };
+    db.connect("root", "root").await?;
 
-    db.add_specie(59729, "Merisier").await?;
-    db.add_specie(59731, "Noyer").await?;
+    db.clear_logs().await; //TODO: Remove after tests
 
+    let known_species: Vec<Specie> = db.get_species().await?;
+    let mut data: Vec<ScrapedLog> = Vec::new();
+    scrape_prices(&mut data);
+    //println!("{} wood species found.", data.len()); //TODO: Remove after tests
 
-    //let sql = "SELECT * FROM specie";
-    //let res = db.execute(sql, None).await?;
-    let res = db.get_species().await?;
+    for specie in data {
+        //println!("{:?}", specie); //TODO: Remove after tests
 
-    let species: Vec<Specie> = res.into_iter().map(|e| e.into()).collect();
-    for specie in species.iter() {
-        println!("{:?}", specie.id);
+        if known_species.iter().find(|s| get_id_from_thing(&s.id).unwrap() == specie.id).is_none() {
+            db.add_specie(specie.id, &specie.name).await?;
+            //println!("{} added", specie.name); //TODO: Remove after tests
+        }
+
+        db.add_log(specie.id, specie.price).await?;
     }
 
-    let test = species.into_iter().find(|s| s.id == 59729);
-
-    match test {
-        None => println!("Can't find specie"),
-        Some(s) => println!("Found: {}", s.id),
-    };
-
-    // let mut species: Vec<Specie> = Vec::new();
-    //
-    // scrape_prices(&mut species);
-    //
-    // println!("{} wood species found.", species.len());
-    //
-    // for specie in species {
-    //     println!("{:?}", specie);
-    // }
+    let logs: Vec<Log> = db.get_logs().await?;
+    for log in logs.iter() {
+        println!("{:?}", log);
+    }
 
     Ok(())
 }

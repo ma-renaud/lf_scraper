@@ -1,66 +1,77 @@
-use surrealdb::sql::{Array, Object, Value};
-use surrealdb::kvs::Datastore;
-use surrealdb::dbs::{Response, Session};
-use std::{collections::BTreeMap, sync::Arc};
-use crate::{utils::prelude::W, utils::error::Error, specie::Specie};
+use crate::models::{Log, Specie};
+use surrealdb::engine::remote::ws::Client;
+use surrealdb::opt::auth::Root;
+use surrealdb::sql::{Id, Thing};
+use surrealdb::Surreal;
 
-impl From<Object> for Specie {
-    fn from(val: Object) -> Self {
-        let id_str = val.get("id").unwrap().to_string();
-        Specie {
-            id: id_str.split(':')
-                .collect::<Vec<&str>>()[1]
-                .parse::<u32>()
-                .unwrap(),
-            name: val.get("name").unwrap().to_string(),
+pub fn get_id_from_thing(thing: &Thing) -> Option<i64> {
+    match thing.id {
+        Id::Number(id) => Some(id),
+        Id::String(_) => None,
+        Id::Array(_) => None,
+        Id::Object(_) => None,
+    }
+}
+
+pub struct DbRemote {
+    pub client: Surreal<Client>,
+}
+
+impl DbRemote {
+    pub async fn connect(&self, username: &str, password: &str) -> surrealdb::Result<()> {
+        self.client.signin(Root { username, password }).await?;
+
+        // Select a specific namespace / database
+        self.client.use_ns("test").use_db("test").await?;
+
+        Ok(())
+    }
+
+    pub async fn get_species(&self) -> Result<Vec<Specie>, surrealdb::Error> {
+        self.client.select("specie").await
+    }
+
+    pub async fn get_logs(&self) -> Result<Vec<Log>, surrealdb::Error> {
+        self.client.query(" SELECT *, specie.* FROM log;").await?.take(0)
+    }
+
+    pub async fn add_specie(&self, lf_id: i64, name: &str) -> Result<(), surrealdb::Error> {
+        let specie: Result<Specie, surrealdb::Error> = self
+            .client
+            .create("specie")
+            .content(Specie {
+                id: Thing {
+                    tb: String::from("specie"),
+                    id: Id::from(lf_id),
+                },
+                name: String::from(name),
+            })
+            .await;
+
+        match specie {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
-}
 
-#[derive(Clone)]
-pub struct DB {
-    pub ds: Arc<Datastore>,
-    pub ses: Session,
-}
+    pub async fn add_log(&self, id: i64, price: u16) -> Result<(), surrealdb::Error> {
+        let result = self.client
+            .query(format!("LET $now = time::now(); CREATE log:[{}, $now] SET specie=specie:{}, price={}, time=$now;", id, id, price))
+            .await;
 
-impl DB {
-    pub async fn execute(
-        &self,
-        query: &str,
-        vars: Option<BTreeMap<String, Value>>,
-    ) -> Result<Vec<Response>, surrealdb::Error> {
-        let res = self.ds.execute(query, &self.ses, vars, false).await?;
-        Ok(res)
+        match result {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }
     }
 
-    pub async fn add_specie(&self, lf_id: u32, name: &str) -> Result<Object, Error> {
-        let sql = "CREATE type::thing('specie', $id) CONTENT $data";
-
-        let data: BTreeMap<String, Value> = [
-            ("name".into(), name.into()),
-        ].into();
-
-        let vars: BTreeMap<String, Value> = [
-            ("id".into(), lf_id.into()),
-            ("data".into(), data.into()),
-        ].into();
-
-        let res = self.ds.execute(sql, &self.ses, Some(vars), false).await?;
-
-        let first_res = res.into_iter().next().expect("Did not get a response");
-
-        W(first_res.result?.first()).try_into()
+    #[allow(unused)]
+    pub async fn clear_species(&self) {
+        let _species: Result<Vec<Specie>, surrealdb::Error> = self.client.delete("specie").await;
     }
 
-    pub async fn get_species(&self) -> Result<Vec<Object>, Error> {
-        let sql = "SELECT * FROM specie ORDER BY name ASC;";
-
-        let res = self.execute(sql, None).await?;
-
-        let first_res = res.into_iter().next().expect("Did not get a response");
-
-        let array: Array = W(first_res.result?).try_into()?;
-
-        array.into_iter().map(|value| W(value).try_into()).collect()
+    #[allow(unused)]
+    pub async fn clear_logs(&self) {
+        let _species: Result<Vec<Specie>, surrealdb::Error> = self.client.delete("log").await;
     }
 }

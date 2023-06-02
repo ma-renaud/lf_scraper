@@ -3,11 +3,10 @@ use yaml_rust::YamlLoader;
 use scraper::{ElementRef, Html, Selector};
 #[allow(unused_imports)]
 use chrono::Utc;
-
-use super::specie::Specie;
+use crate::models::ScrapedLog;
 
 #[allow(unused)]
-pub fn scrape_prices(species: &mut Vec<Specie>) {
+pub fn scrape_prices(data: &mut Vec<ScrapedLog>) {
     let contents = match fs::read_to_string("langevin.html") {
         Err(e) => panic!("Problem opening html file: {:?}", e),
         Ok(f) => f,
@@ -28,9 +27,10 @@ pub fn scrape_prices(species: &mut Vec<Specie>) {
         #[allow(unused)]
         let price = scrape_price(&element);
 
-        species.push(Specie {
+        data.push(ScrapedLog {
             id: lf_id,
             name,
+            price
         });
     }
 }
@@ -62,7 +62,7 @@ fn scrape_price(element: &ElementRef) -> u16 {
 }
 
 #[allow(unused)]
-fn scrape_id(element: &ElementRef) -> u32 {
+fn scrape_id(element: &ElementRef) -> i64 {
     let id_selector = Selector::parse("div.price-final_price").unwrap();
 
     let id_attr = element
@@ -77,7 +77,7 @@ fn scrape_id(element: &ElementRef) -> u32 {
         Some(id) => id,
     };
 
-    match id_str.parse::<u32>() {
+    match id_str.parse::<i64>() {
         Err(e) => panic!("Problem converting ID string: {:?}", e),
         Ok(id) => id,
     }
