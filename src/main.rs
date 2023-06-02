@@ -1,52 +1,50 @@
-use anyhow::Result;
-
-use surrealdb::engine::remote::ws::Ws;
-use surrealdb::Surreal;
-
 mod config;
 mod db;
-mod models;
 mod lf_scraper;
+mod models;
 
+use anyhow::Result;
 use crate::db::{get_id_from_thing, DbRemote};
 use models::*;
-use lf_scraper::scrape_prices;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let scraper_config = config::load_config().unwrap();
     println!("{:?}", scraper_config);
 
-    let client = Surreal::new::<Ws>("127.0.0.1:8000").await?;
-    let db = DbRemote { client };
-    db.connect("root", "root").await?;
+    let db = DbRemote::new(
+        &scraper_config.surreal_address,
+        &scraper_config.surreal_username,
+        &scraper_config.surreal_password,
+        &scraper_config.surreal_namespace,
+        &scraper_config.surreal_database,
+    )
+    .await?;
 
     db.clear_logs().await; //TODO: Remove after tests
 
     let known_species: Vec<Specie> = db.get_species().await?;
     let mut data: Vec<ScrapedLog> = Vec::new();
-    scrape_prices(&mut data);
-    //println!("{} wood species found.", data.len()); //TODO: Remove after tests
+    lf_scraper::scrape_prices(&mut data, &scraper_config.crawlio_key);
 
     for specie in data {
-        //println!("{:?}", specie); //TODO: Remove after tests
-
         if known_species
             .iter()
             .find(|s| get_id_from_thing(&s.id).unwrap() == specie.id)
             .is_none()
         {
             db.add_specie(specie.id, &specie.name).await?;
-            //println!("{} added", specie.name); //TODO: Remove after tests
         }
 
         db.add_log(specie.id, specie.price).await?;
     }
 
+    //TODO: Remove after tests
     let logs: Vec<Log> = db.get_logs().await?;
     for log in logs.iter() {
         println!("{:?}", log);
     }
+    //TODO: Remove after tests
 
     Ok(())
 }

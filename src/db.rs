@@ -1,5 +1,5 @@
 use crate::models::{Log, Specie};
-use surrealdb::engine::remote::ws::Client;
+use surrealdb::engine::remote::ws::{Client, Ws};
 use surrealdb::opt::auth::Root;
 use surrealdb::sql::{Id, Thing};
 use surrealdb::Surreal;
@@ -18,13 +18,21 @@ pub struct DbRemote {
 }
 
 impl DbRemote {
-    pub async fn connect(&self, username: &str, password: &str) -> surrealdb::Result<()> {
-        self.client.signin(Root { username, password }).await?;
+    pub async fn new(
+        address: &str,
+        username: &str,
+        password: &str,
+        namespace: &str,
+        database: &str,
+    ) -> surrealdb::Result<Self> {
+        let client = Surreal::new::<Ws>(address).await?;
+
+        client.signin(Root { username, password }).await?;
 
         // Select a specific namespace / database
-        self.client.use_ns("test").use_db("test").await?;
+        client.use_ns(namespace).use_db(database).await?;
 
-        Ok(())
+        Ok(Self { client })
     }
 
     pub async fn get_species(&self) -> Result<Vec<Specie>, surrealdb::Error> {
@@ -32,7 +40,10 @@ impl DbRemote {
     }
 
     pub async fn get_logs(&self) -> Result<Vec<Log>, surrealdb::Error> {
-        self.client.query(" SELECT *, specie.* FROM log;").await?.take(0)
+        self.client
+            .query(" SELECT *, specie.* FROM log;")
+            .await?
+            .take(0)
     }
 
     pub async fn add_specie(&self, lf_id: i64, name: &str) -> Result<(), surrealdb::Error> {

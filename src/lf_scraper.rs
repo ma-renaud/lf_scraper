@@ -3,16 +3,15 @@ use crate::models::ScrapedLog;
 use chrono::Utc;
 use scraper::{ElementRef, Html, Selector};
 use std::fs;
-use yaml_rust::YamlLoader;
 
 #[allow(unused)]
-pub fn scrape_prices(data: &mut Vec<ScrapedLog>) {
+pub fn scrape_prices(data: &mut Vec<ScrapedLog>, api_key: &str) {
     let contents = match fs::read_to_string("langevin.html") {
         Err(e) => panic!("Problem opening html file: {:?}", e),
         Ok(f) => f,
     };
 
-    //let contents = get_page();
+    //let contents = get_page(api_key);
 
     let document = Html::parse_document(&*contents);
     let list_selector = Selector::parse("ol.product-items").unwrap();
@@ -86,27 +85,8 @@ fn scrape_id(element: &ElementRef) -> i64 {
     }
 }
 
-fn load_api_key() -> String {
-    let key_file = match fs::read_to_string("config.yaml") {
-        Err(e) => panic!("Problem opening key file: {:?}", e),
-        Ok(f) => f,
-    };
-
-    let docs = YamlLoader::load_from_str(&*key_file).unwrap();
-    if docs.is_empty() {
-        panic!("Key file is empty");
-    }
-    let doc = &docs[0];
-
-    match doc["key"].as_str() {
-        None => panic!("Can't read key in config.yaml"),
-        Some(key) => return key.to_string(),
-    }
-}
-
 #[allow(unused)]
-fn get_page() -> String {
-    let api_key: &str = &*load_api_key();
+fn get_page(api_key: &str) -> String {
     let client = reqwest::blocking::Client::builder()
         .cookie_store(true)
         .build()
