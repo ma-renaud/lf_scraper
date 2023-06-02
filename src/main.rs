@@ -6,11 +6,11 @@ use surrealdb::Surreal;
 mod config;
 mod db;
 mod models;
-mod scaper;
+mod lf_scraper;
 
 use crate::db::{get_id_from_thing, DbRemote};
 use models::*;
-use scaper::scrape_prices;
+use lf_scraper::scrape_prices;
 
 #[tokio::main]
 async fn main() -> Result<()> {
