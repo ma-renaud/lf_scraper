@@ -11,5 +11,5 @@ Cargo.lock
 **/*.rs.bk
 
 .idea
-key.yaml
+config.yaml
 docker/database.db/

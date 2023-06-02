@@ -1,9 +1,9 @@
-use std::fs;
-use yaml_rust::YamlLoader;
-use scraper::{ElementRef, Html, Selector};
+use crate::models::ScrapedLog;
 #[allow(unused_imports)]
 use chrono::Utc;
-use crate::models::ScrapedLog;
+use scraper::{ElementRef, Html, Selector};
+use std::fs;
+use yaml_rust::YamlLoader;
 
 #[allow(unused)]
 pub fn scrape_prices(data: &mut Vec<ScrapedLog>) {
@@ -30,7 +30,7 @@ pub fn scrape_prices(data: &mut Vec<ScrapedLog>) {
         data.push(ScrapedLog {
             id: lf_id,
             name,
-            price
+            price,
         });
     }
 }
@@ -53,7 +53,10 @@ fn scrape_price(element: &ElementRef) -> u16 {
     let price_selector = Selector::parse("span.price").unwrap();
 
     let price_html = element.select(&price_selector).next().unwrap();
-    let formatted_price = price_html.inner_html().replace("&nbsp;$", "").replace(",", "");
+    let formatted_price = price_html
+        .inner_html()
+        .replace("&nbsp;$", "")
+        .replace(",", "");
 
     match formatted_price.parse::<u16>() {
         Err(e) => panic!("Problem converting price string: {:?}", e),
@@ -84,7 +87,7 @@ fn scrape_id(element: &ElementRef) -> i64 {
 }
 
 fn load_api_key() -> String {
-    let key_file = match fs::read_to_string("key.yaml") {
+    let key_file = match fs::read_to_string("config.yaml") {
         Err(e) => panic!("Problem opening key file: {:?}", e),
         Ok(f) => f,
     };
@@ -96,7 +99,7 @@ fn load_api_key() -> String {
     let doc = &docs[0];
 
     match doc["key"].as_str() {
-        None => panic!("Can't read key in key.yaml"),
+        None => panic!("Can't read key in config.yaml"),
         Some(key) => return key.to_string(),
     }
 }
@@ -104,7 +107,10 @@ fn load_api_key() -> String {
 #[allow(unused)]
 fn get_page() -> String {
     let api_key: &str = &*load_api_key();
-    let client = reqwest::blocking::Client::builder().cookie_store(true).build().unwrap();
+    let client = reqwest::blocking::Client::builder()
+        .cookie_store(true)
+        .build()
+        .unwrap();
 
     let response = client
         .get(format!("https://app.crawlio.net/api/v1?api_key={}&url=https%3A%2F%2Fwww.langevinforest.com%2Ffr%2Fbois%2Fbois-brut%3Fproduct_list_limit%3Dall&proxy_tier=standard", api_key))
