@@ -1,0 +1,73 @@
+- name: Install docker
+  hosts: rpi
+  become: True
+
+  handlers:
+    - name: restart docker
+      service:
+        name: docker
+        state: restarted
+
+  tasks:
+
+    - name: Install dependencies
+      apt:
+        name: "{{item}}"
+        state: present
+        update_cache: yes
+      loop:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - git
+        - gnupg-agent
+        - libltdl7
+        - software-properties-common
+        - git
+
+    - name: Add dir for key
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Fetch Docker's official GPG key
+      get_url:
+        dest: /tmp/docker.gpg
+        url: https://download.docker.com/linux/debian/gpg
+
+    - name: Remove key file
+      file:
+        path: /etc/apt/keyrings/docker.gpg
+        state: absent
+
+    - name: Add Docker's official GPG key
+      command: "gpg --dearmor -o /etc/apt/keyrings/docker.gpg /tmp/docker.gpg"
+
+    - name: set perms on key file
+      file:
+        path: /etc/apt/keyrings/docker.gpg
+        mode: 'a+r'
+
+    - name: Load  Docker sources.list
+      shell: |
+        echo \
+        deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+        $(. /etc/os-release && echo $VERSION_CODENAME) stable >/etc/apt/sources.list.d/docker.list
+
+    - name: Install Docker
+      apt:
+        update_cache: 'yes'
+        pkg:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+          - docker-compose
+
+    - name: Test docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes

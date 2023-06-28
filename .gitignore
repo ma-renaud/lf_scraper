@@ -12,4 +12,3 @@ Cargo.lock
 
 .idea
 config.yaml
-docker/database.db/

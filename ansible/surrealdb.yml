@@ -1,0 +1,45 @@
+- name: Install docker
+  hosts: rpi
+  become: True
+
+  vars_files:
+    - secrets.yml
+
+  tasks:
+
+    - name: Create directories for database files
+      become_user: "{{ lookup('env', 'USER') }}"
+      file:
+        path: $HOME/database.db
+        state: directory
+        mode: '0755'
+
+    - name: Create directories for docker files
+      file:
+        path: /srv/docker
+        state: directory
+        mode: '0755'
+
+    - name: Install surrealDB docker-compose
+      template:
+        src: docker-compose.yml.j2
+        dest: /srv/docker/docker-compose.yml
+        mode: '0644'
+
+    - name: Install surrealDB service
+      copy:
+        src: surrealdb.service
+        dest: /etc/systemd/system
+        mode: '0744'
+
+    - name: Enable docker.service
+      systemd:
+        name: surrealdb.service
+        daemon_reload: true
+        enabled: true
+
+    - name: Test surrealdb service
+      service:
+        name: surrealdb
+        state: started
+        enabled: yes

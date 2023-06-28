@@ -1,0 +1,17 @@
+version: '3.5'
+
+services:
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    container_name: surrealdb
+    user: 1000:1000
+    ports:
+      - "8000:8000"
+    command:
+      - start
+      - --log=trace
+      - --user={{ surrealdb_user }}
+      - --pass={{ surrealdb_pass }}
+      - file://database.db
+    volumes:
+      - /home/marenaud/database.db:/database.db
