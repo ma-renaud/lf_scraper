@@ -1,0 +1,35 @@
+- name: Build lf scraper
+  hosts: rpi
+  become: True
+  become_user: "{{ lookup('env', 'USER') }}"
+
+  tasks:
+
+    - name: Build cross compile docker image
+      delegate_to: localhost
+      command:
+       cmd: docker build . -t rust_rpi -f Dockerfile.aarch64
+       chdir: $PWD/../docker/Dockerfile
+
+    - name: Build scraper
+      delegate_to: localhost
+      command:
+        cmd: docker run --rm -u 1000:1000 -v ${PWD}/..:/app rust_rpi --release
+        chdir: $PWD/..
+      register: result
+      until: result is succeeded
+      retries: 10
+      delay: 10
+
+    - name: Copy scraper executable
+      copy:
+        src: ../../target/aarch64-unknown-linux-gnu/release/lf_scraper
+        dest: $HOME/lf_scraper
+        mode: '0755'
+
+    - name: Copy configuration file
+      copy:
+
+        src: ../../config.yaml
+        dest: $HOME/config.yaml
+        mode: '0744'

@@ -1,0 +1,17 @@
+FROM rust:latest
+
+RUN apt update && apt upgrade -y
+RUN apt install -y g++-arm-linux-gnueabihf libc6-dev-armhf-cross libssl-dev
+
+
+RUN rustup target add arm-unknown-linux-gnueabihf
+RUN rustup toolchain install stable-arm-unknown-linux-gnueabihf
+
+WORKDIR /app
+
+ENV CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-unknown-linux-gnueabihf-gcc \
+    CC_arm_unknown_linux_gnueabihf=arm-unknown-linux-gnueabihf-gcc \
+    CXX_arm_unknown_linux_gnueabihf=arm-unknown-linux-gnueabihf-g++ \
+    PKG_CONFIG_PATH="/usr/lib/arm-linux-gnueabihf/pkgconfig/:${PKG_CONFIG_PATH}"
+
+ENTRYPOINT ["cargo", "build", "--target", "arm-unknown-linux-gnueabihf"]

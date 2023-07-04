@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
     //TODO: Remove after tests
     let logs: Vec<Log> = db.get_logs().await?;
     for log in logs.iter() {
-        println!("{:?}", log);
+        //println!("{:?}", log);
     }
     //TODO: Remove after tests
 

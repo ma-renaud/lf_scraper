@@ -23,7 +23,6 @@
         - gnupg-agent
         - libltdl7
         - software-properties-common
-        - git
 
     - name: Add dir for key
       file:
