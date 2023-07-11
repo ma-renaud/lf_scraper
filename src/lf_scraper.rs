@@ -2,16 +2,12 @@ use crate::models::ScrapedLog;
 #[allow(unused_imports)]
 use chrono::Utc;
 use scraper::{ElementRef, Html, Selector};
-use std::fs;
 
 #[allow(unused)]
-pub fn scrape_prices(data: &mut Vec<ScrapedLog>, api_key: &str) {
-    let contents = match fs::read_to_string("langevin.html") {
-        Err(e) => panic!("Problem opening html file: {:?}", e),
-        Ok(f) => f,
-    };
+pub fn scrape_prices(api_key: &str) -> Vec<ScrapedLog> {
+    let mut data: Vec<ScrapedLog> = Vec::new();
 
-    //let contents = get_page(api_key);
+    let contents = get_page(api_key);
 
     let document = Html::parse_document(&*contents);
     let list_selector = Selector::parse("ol.product-items").unwrap();
@@ -32,6 +28,8 @@ pub fn scrape_prices(data: &mut Vec<ScrapedLog>, api_key: &str) {
             price,
         });
     }
+
+    data
 }
 
 #[allow(unused)]

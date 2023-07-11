@@ -3,14 +3,14 @@ mod db;
 mod lf_scraper;
 mod models;
 
-use anyhow::Result;
 use crate::db::{get_id_from_thing, DbRemote};
+use anyhow::Result;
 use models::*;
+use tokio::task::spawn_blocking;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let scraper_config = config::load_config().unwrap();
-    println!("{:?}", scraper_config);
 
     let db = DbRemote::new(
         &scraper_config.surreal_address,
@@ -21,11 +21,10 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    db.clear_logs().await; //TODO: Remove after tests
-
     let known_species: Vec<Specie> = db.get_species().await?;
-    let mut data: Vec<ScrapedLog> = Vec::new();
-    lf_scraper::scrape_prices(&mut data, &scraper_config.crawlio_key);
+
+    let data =
+        spawn_blocking(move || lf_scraper::scrape_prices(&scraper_config.crawlio_key)).await?;
 
     for specie in data {
         if known_species
@@ -38,13 +37,6 @@ async fn main() -> Result<()> {
 
         db.add_log(specie.id, specie.price).await?;
     }
-
-    //TODO: Remove after tests
-    let logs: Vec<Log> = db.get_logs().await?;
-    for log in logs.iter() {
-        //println!("{:?}", log);
-    }
-    //TODO: Remove after tests
 
     Ok(())
 }

@@ -39,6 +39,7 @@ impl DbRemote {
         self.client.select("specie").await
     }
 
+    #[allow(unused)]
     pub async fn get_logs(&self) -> Result<Vec<Log>, surrealdb::Error> {
         self.client
             .query(" SELECT *, specie.* FROM log;")
